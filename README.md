@@ -38,8 +38,21 @@ distinctive); a theme is one entry. Everything else is derived.
 
 - `SKILL.md` — Claude Code skill instructions
 - `brand.config.json` — products, themes, framing
-- `scripts/` — `detect-stack.mjs`, `generate-icons.mjs`, `install/*`, `lib/symbol.mjs`
+- `scripts/` — `detect-stack.mjs`, `generate-icons.mjs` (icons + theme alternates + WCAG
+  contrast check), `generate-tokens.mjs` (Color.kt / tokens.css / tokens.json),
+  `install/{kmp,native-ios,native-android,web}.mjs`, `lib/symbol.mjs`
 - `integration/` — KMP `IconManager` (expect/actual) + Firebase client; native iOS/Android
-- `references/` — per-stack install guides + the icon-system + remote-switching docs
+- `assets/` — `buky` wordmark + lockup SVGs (outlined Plus Jakarta Sans)
+- `references/` — per-stack install guides + icon-system, tokens, remote-switching docs
+- `test/` + `.github/workflows/ci.yml` — `node --test` detection tests + generate smoke run
+
+## Commands
+
+```bash
+npm run detect -- /path/to/app     # detect stack
+npm run generate                    # icons + theme alternates
+npm run tokens                      # Color.kt + tokens.css + tokens.json
+node --test                         # run tests
+```
 
 MIT © Butake

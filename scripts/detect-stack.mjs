@@ -5,7 +5,7 @@ import { readdirSync, readFileSync, statSync, existsSync } from 'fs';
 import { join } from 'path';
 
 const root = process.argv[2] || '.';
-const SUPPORTED = ['kmp', 'native-ios', 'native-android'];
+const SUPPORTED = ['kmp', 'native-ios', 'native-android', 'web'];
 
 function walk(dir, depth, hits, max = 4) {
   if (depth > max) return;
@@ -23,11 +23,13 @@ function walk(dir, depth, hits, max = 4) {
       if (e.name === 'pubspec.yaml') hits.pubspec.push(p);
       if (e.name === 'build.gradle.kts' || e.name === 'build.gradle') hits.gradle.push(p);
       if (e.name === 'libs.versions.toml') hits.toml.push(p);
+      if (e.name === 'manifest.webmanifest' || e.name === 'site.webmanifest') hits.webManifest.push(p);
+      if (e.name === 'index.html') hits.indexHtml.push(p);
     }
   }
 }
 
-const hits = { xcode: [], androidManifest: [], packageSwift: [], pubspec: [], gradle: [], toml: [] };
+const hits = { xcode: [], androidManifest: [], packageSwift: [], pubspec: [], gradle: [], toml: [], webManifest: [], indexHtml: [] };
 walk(root, 0, hits);
 
 // Read Gradle scripts AND the version catalog — modern KMP applies the plugin via an alias
@@ -55,6 +57,18 @@ if (isMultiplatform) {
   evidence.push(`AndroidManifest.xml: ${hits.androidManifest[0]}`);
 }
 
+// A web target can coexist with KMP/native projects. Record the path regardless of the
+// primary stack; only promote stack to 'web' when nothing else matched.
+const webTarget = hits.webManifest[0] || hits.indexHtml[0] || null;
+if (webTarget) {
+  if (stack === 'unknown') {
+    stack = 'web';
+    evidence.push(`Web target: ${webTarget}`);
+  } else {
+    evidence.push(`Web target also present: ${webTarget}`);
+  }
+}
+
 const result = {
   stack,
   supported: SUPPORTED.includes(stack),
@@ -62,7 +76,7 @@ const result = {
   targets: {
     ios: stack === 'kmp' || stack === 'native-ios' ? (hits.xcode[0] || hits.packageSwift[0] || null) : null,
     android: stack === 'kmp' || stack === 'native-android' ? (hits.androidManifest[0] || null) : null,
-    web: null,
+    web: webTarget,
   },
   supportedStacks: SUPPORTED,
 };

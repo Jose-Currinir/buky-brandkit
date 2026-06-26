@@ -42,25 +42,42 @@ Prints JSON: `{ stack, supported, evidence[], targets: {ios, android, web} }`.
   plugin; usually has `androidApp` + `iosApp`).
 - `native-ios` — has `*.xcodeproj`/`Package.swift`, no multiplatform plugin.
 - `native-android` — has `AndroidManifest.xml`, no multiplatform plugin.
+- `web` — has `manifest.webmanifest`/`index.html`. Coexists with the above: a KMP/native
+  project that also ships web fills `targets.web` without changing the primary `stack`.
 - If `supported` is false, tell the user which stacks are covered and stop. Don't guess.
 
 ### 2. Generate the icon assets
 ```
 node scripts/generate-icons.mjs --config brand.config.json --out out/icons
 ```
-Produces, per product, the **3 reusable layers** (`bg`, `bg-dark`, `fg`, `mono`) and the
-derived platform assets. The symbol is centered on its real ink bounding box and framed at
-`safeZone` (default 0.56 of the canvas) so it survives every OS mask, Liquid Glass, and
-themed tint. See `references/icon-system.md` for the layer model and why 0.56.
+Produces, per product, the **3 reusable layers** (`bg`, `bg-dark`, `fg`, `mono`), the derived
+platform assets, AND the **theme alternates** for every non-default theme in the config
+(`themes/<key>/`, iOS loose `ios/alternates/<key>@2x/@3x.png`, Android
+`mipmap-*/ic_launcher_<key>.png`). The symbol is centered on its real ink bounding box and
+framed at `safeZone` (default 0.56) so it survives every OS mask, Liquid Glass, and themed
+tint. The script also runs a WCAG contrast check and warns when a product/theme `fg` on `bg`
+falls below 3.0. See `references/icon-system.md` for the layer model and why 0.56.
+
+### 2b. (Optional) Generate code tokens
+```
+node scripts/generate-tokens.mjs --config brand.config.json --out out/tokens
+```
+Emits `Color.kt` (Compose), `tokens.css`, and `tokens.json` so the icon, wordmark, and UI
+share one color source. See `references/tokens.md`.
 
 ### 3. Install into the project
 Pick the installer for the detected stack and read its reference first:
 - `kmp` → read `references/kmp.md`, then `node scripts/install/kmp.mjs <target> out/icons`
 - `native-ios` → read `references/native-ios.md`, then `scripts/install/native-ios.mjs`
 - `native-android` → read `references/native-android.md`, then `scripts/install/native-android.mjs`
+- `web` → `node scripts/install/web.mjs <web-public-dir> out/icons [product]` (copies favicons +
+  writes `manifest.webmanifest` and prints the `<link>` tags).
 
 Installers copy assets and (for adaptive/alternate icons) write the platform manifests
 (`mipmap-anydpi-v26/*.xml`, `<activity-alias>` entries, `CFBundleAlternateIcons`).
+
+Brand wordmark + lockup SVGs live in `assets/` (`buky-wordmark*.svg`,
+`buky-lockup-*.svg`) — use them for splash/marketing, not as the app icon.
 
 ### 4. Scaffold remote switching
 Read `references/remote-switching.md`. Copy the integration templates and adapt package

@@ -6,6 +6,37 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { placed, svg, symbol } from './lib/symbol.mjs';
 
+const PRIDE_STOPS = ['E40303', 'FF8C00', 'FFED00', '008026', '004DFF', '750787'];
+const PRIDE_DEFS = `<defs><linearGradient id="pride" x1="0" y1="0" x2="0" y2="1">${PRIDE_STOPS.map((c, i) => `<stop offset="${(i / (PRIDE_STOPS.length - 1) * 100).toFixed(2)}%" stop-color="#${c}"/>`).join('')}</linearGradient></defs>`;
+
+// WCAG relative luminance + contrast ratio between two hex colors.
+function luminance(hex) {
+  const h = hex.replace('#', '');
+  const ch = [0, 2, 4].map((i) => {
+    const c = parseInt(h.slice(i, i + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+}
+function contrast(a, b) {
+  const la = luminance(a), lb = luminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+// Themed symbol overlay (framed symbol + theme extras), without any background.
+function themeOverlay(size, theme) {
+  if (theme.rainbow) return PRIDE_DEFS + placed(size, 'url(#pride)', SAFE);
+  let body = placed(size, theme.fg || '#FFFFFF', SAFE);
+  if (theme.accent) {
+    body += `<circle cx="${(size * 0.74).toFixed(1)}" cy="${(size * 0.24).toFixed(1)}" r="${(size * 0.07).toFixed(1)}" fill="${theme.accent}"/>`;
+  }
+  return body;
+}
+// Full-bleed themed app-icon body: opaque background rect + overlay.
+function themeInner(size, theme) {
+  return `<rect width="${size}" height="${size}" fill="${theme.bg}"/>${themeOverlay(size, theme)}`;
+}
+
 const args = Object.fromEntries(
   process.argv.slice(2).reduce((a, v, i, arr) => (v.startsWith('--') ? [...a, [v.slice(2), arr[i + 1]]] : a), [])
 );
@@ -54,7 +85,39 @@ for (const p of cfg.products) {
   tasks.push(rp(`${k}/web/apple-touch-180.png`, composite(p.bg, 180)));
   tasks.push(rp(`${k}/web/maskable-512.png`, svg(512, `<rect width="512" height="512" fill="${p.bg}"/>${placed(512, p.fg, 0.5)}`)));
   for (const s of [16, 32, 192, 512]) tasks.push(rp(`${k}/web/icon-${s}.png`, svg(s, `<rect width="${s}" height="${s}" rx="${(s * 0.16).toFixed(1)}" fill="${p.bg}"/>${placed(s, p.fg, 0.64)}`)));
+
+  // --- Theme alternates (seasonal remote-switchable icons) ---
+  for (const t of (cfg.themes || [])) {
+    if (t.key === 'default') continue;
+    const tk = t.key;
+    const square = (size) => svg(size, themeInner(size, t));
+    // Full-bleed opaque squares, flattened to drop any alpha.
+    for (const s of [1024, 512]) tasks.push(rp(`${k}/themes/${tk}/icon-${s}.png`, square(s)).then(() => flattenLast(`${k}/themes/${tk}/icon-${s}.png`, t.bg)));
+    // iOS loose alternate PNGs (cannot live in the asset catalog).
+    for (const [suf, s] of [['@2x', 120], ['@3x', 180]]) tasks.push(rp(`${k}/ios/alternates/${tk}${suf}.png`, square(s)).then(() => flattenLast(`${k}/ios/alternates/${tk}${suf}.png`, t.bg)));
+    // Android per-density mipmaps: square (rounded-rect) + round (circle).
+    for (const [d, s] of Object.entries(DENS)) {
+      tasks.push(rp(`${k}/android/mipmap-${d}/ic_launcher_${tk}.png`, svg(s, `<rect width="${s}" height="${s}" rx="${(s * 0.16).toFixed(1)}" fill="${t.bg}"/>${themeOverlay(s, t)}`)));
+      tasks.push(rp(`${k}/android/mipmap-${d}/ic_launcher_${tk}_round.png`, svg(s, `<circle cx="${s / 2}" cy="${s / 2}" r="${s / 2}" fill="${t.bg}"/>${themeOverlay(s, t)}`)));
+    }
+  }
 }
+
+// --- WCAG contrast check (warn-only) for every product x theme combination. ---
+let contrastWarned = false;
+for (const p of cfg.products) {
+  for (const t of (cfg.themes || [])) {
+    const bg = t.key === 'default' ? p.bg : t.bg;
+    const fg = t.rainbow ? null : (t.key === 'default' ? p.fg : (t.fg || '#FFFFFF'));
+    if (!fg) continue; // rainbow gradient has no single fg to score
+    const ratio = contrast(fg, bg);
+    if (ratio < 3.0) {
+      contrastWarned = true;
+      console.warn(`⚠ contrast ${p.key}/${t.key} fg ${fg} on ${bg} = ${ratio.toFixed(1)} (<3.0)`);
+    }
+  }
+}
+if (!contrastWarned) console.log('contrast: all OK');
 
 function placedAt(size, fill, frac) { return placed(size, fill, frac); }
 async function flattenLast(rel, bg) { const p = join(OUT, rel); const buf = await sharp(p).flatten({ background: bg }).png().toBuffer(); await sharp(buf).toFile(p); }

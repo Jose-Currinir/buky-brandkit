@@ -23,13 +23,16 @@ actual class IconManager actual constructor() {
 
     actual fun setTheme(themeKey: String) {
         val app = UIApplication.sharedApplication
-        if (!app.supportsAlternateIcons()) return
+        // supportsAlternateIcons is an Objective-C property — property access, not a function call.
+        if (!app.supportsAlternateIcons) return
         val name: String? = if (themeKey == "default" || themeKey !in themes) null else themeKey
         // setAlternateIconName must run on the main thread.
+        // ObjC selector is setAlternateIconName:completionHandler: — verify the named
+        // completionHandler parameter matches your Kotlin/Native UIKit bindings version.
         dispatch_async(dispatch_get_main_queue()) {
-            app.setAlternateIconName(name) { error ->
+            app.setAlternateIconName(name, completionHandler = { error ->
                 if (error != null) println("brandkit: icon change failed: ${error.localizedDescription}")
-            }
+            })
         }
     }
 }

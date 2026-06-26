@@ -5,11 +5,22 @@
   "license": "MIT",
   "type": "module",
   "description": "Apply the Buky/Butake brand identity (layered app-icon system) to KMP and native iOS/Android projects, with remote (Firebase-driven) icon switching.",
-  "bin": { "brandkit-detect": "scripts/detect-stack.mjs", "brandkit-generate": "scripts/generate-icons.mjs" },
+  "bin": {
+    "brandkit-detect": "scripts/detect-stack.mjs",
+    "brandkit-generate": "scripts/generate-icons.mjs"
+  },
   "scripts": {
     "detect": "node scripts/detect-stack.mjs",
-    "generate": "node scripts/generate-icons.mjs"
+    "generate": "node scripts/generate-icons.mjs",
+    "tokens": "node scripts/generate-tokens.mjs"
   },
-  "dependencies": { "sharp": "^0.33.0" },
-  "engines": { "node": ">=18" }
+  "dependencies": {
+    "sharp": "^0.33.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "devDependencies": {
+    "opentype.js": "^2.0.0"
+  }
 }
