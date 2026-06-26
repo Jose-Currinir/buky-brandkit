@@ -1,0 +1,17 @@
+---
+description: brandkit — Buky/Butake icon system. Canonical guide is AGENTS.md.
+alwaysApply: true
+---
+
+Read `AGENTS.md` at the repo root — it is the single source of truth for this project.
+
+Non-negotiables:
+- Remote icon switching = SELECT among build-time-bundled alternates via Firebase Remote
+  Config. NEVER imply you can push a new icon image over the air; a new theme needs an app
+  update.
+- Icon model: per-product solid background color + white symbol (flagship `buky` = forest
+  bg + mint symbol). No badges/strips/corner decorations — those are rejected.
+- 3-layer master: full-bleed `bg` (no baked corners/effects), transparent `fg` symbol at
+  safeZone 0.56 centered on the real ink bbox, `mono` silhouette for themed/tinted.
+- `brand.config.json` is the source of truth; ESM `.mjs` scripts; deps light; mark
+  paid/hosting/Xcode steps as `// STUB:`.
